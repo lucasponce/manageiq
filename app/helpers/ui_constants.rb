@@ -472,6 +472,10 @@ module UiConstants
   ASSIGN_TOS["MiqServer"] = {
     "miq_server" => _("Selected %{tables}") % {:tables => ui_lookup(:tables => "miq_server")},
   }
+  ASSIGN_TOS["MiddlewareServer"] = {
+    "enterprise"   => _("The Enterprise"),
+    "middleware_server" => _("Selected %{tables}") % {:tables => ui_lookup(:tables => "middleware_server")}
+  }
 
   # This set of assignments was created for chargeback_rates
   ASSIGN_TOS[:chargeback_storage] = ASSIGN_TOS["Storage"]
