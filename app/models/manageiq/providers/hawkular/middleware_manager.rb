@@ -149,6 +149,57 @@ module ManageIQ::Providers
       )
     end
 
+    def self.update_alert_profiles(*args)
+      operation = args[0][:operation]
+      profile_name = args[0][:profile_name]
+      profile_description = args[0][:profile_description]
+      old_alerts = args[0][:old_alerts]
+      new_alerts = args[0][:new_alerts]
+
+      case operation
+      when :update_alerts
+        _log.info("Change TriggerGroups for profile #{profile_description}. Old: #{old_alerts}. New: #{new_alerts}")
+      when :update_children
+        old_children = args[0][:old_children]
+        new_children = args[0][:new_children]
+        unless old_children.empty?
+          if old_children[0].class.name == "MiqEnterprise"
+            _log.info("Unassign from enterprise")
+            unassigned = []
+            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| unassigned << eap.id } }
+          else
+            unassigned = old_children.collect { |eap| eap.id }
+          end
+          _log.info("Remove children ids #{unassigned} from TriggerGroups #{old_alerts} in profile #{profile_description}")
+        end
+        unless new_children.nil? || new_children["assign_to"].nil?
+          if new_children["assign_to"] == "enterprise"
+            _log.info("Assign from enterprise")
+            assigned = []
+            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| assigned << eap.id } }
+          else
+            assigned = new_children["objects"]
+          end
+          _log.info("Add children ids #{assigned} from TriggerGroups #{old_alerts} in profile #{profile_description}")
+        end
+      end
+    end
+
+    def self.update_alert(*args)
+      tg_id = args[0][:alert][:id]
+      tg_enabled = args[0][:alert][:enabled]
+      tg_description = args[0][:alert][:description]
+      tg_conditions = args[0][:alert][:expression]
+      case args[0][:operation]
+      when :new
+        _log.info("Create TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
+      when :update
+        _log.info("Update TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
+      when :delete
+        _log.info("Delete TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
+      end
+    end
+
     private
 
     # Trigger running a (Hawkular) operation on the

@@ -434,7 +434,22 @@ class MiqAlert < ApplicationRecord
             :cpu_affinity => Dictionary.gettext("cpu_affinity", :type => "column")
           }},
           {:name => :operator, :description => "Operator", :values => ["Changed"]}
-        ]}
+        ]},
+      {:name => "mw_heap_used", :description => "JVM Heap Used", :db => ["MiddlewareServer"], :responds_to_events => "mw_event",
+       :options => [
+         {:name => :value_mw_gt, :description => "> Heap Max (%)", :numeric => true},
+         {:name => :value_mw_lt, :description => "< Heap Max (%)", :numeric => true}
+       ]},
+      {:name => "mw_non_heap_used", :description => "JVM Non Heap Used", :db => ["MiddlewareServer"], :responds_to_events => "mw_event",
+       :options => [
+         {:name => :value_mw_gt, :description => "> Heap Max (%)", :numeric => true},
+         {:name => :value_mw_lt, :description => "< Heap Max (%)", :numeric => true}
+       ]},
+      {:name => "mw_accumulated_gc_duration", :description => "JVM Accumulated GC Duration", :db => ["MiddlewareServer"], :responds_to_events => "mw_event",
+       :options => [
+         {:name => :mw_operator, :description => "Operator", :values => [">", ">=", "<", "<=", "="]},
+         {:name => :value_mw_gc, :description => "Duration Per Minute (ms)", :numeric => true}
+       ]}
     ]
   end
 

@@ -26,6 +26,7 @@ module MiqPolicyController::Alerts
                                                 _("%{model} \"%{name}\" was added")
         add_flash(flash_key % {:model => ui_lookup(:model => "MiqAlert"), :name => @edit[:new][:description]})
         alert_get_info(MiqAlert.find(alert.id))
+        alert_sync_mw_provider(@edit[:alert_id] ? :update : :new) if @alert.db == "MiddlewareServer"
         @edit = nil
         @nodetype = "al"
         @new_alert_node = "al-#{to_cid(alert.id)}"
@@ -59,7 +60,8 @@ module MiqPolicyController::Alerts
     else
       alerts.push(params[:id])
     end
-
+    alert_get_info(MiqAlert.find(params[:id]))
+    alert_sync_mw_provider(:delete) if @alert.db == "MiddlewareServer"
     process_alerts(alerts, "destroy") unless alerts.empty?
     @new_alert_node = self.x_node = "root"
     get_node_info(x_node)
@@ -69,7 +71,6 @@ module MiqPolicyController::Alerts
   def alert_field_changed
     return unless load_edit("alert_edit__#{params[:id]}", "replace_cell__explorer")
     @alert = @edit[:alert_id] ? MiqAlert.find_by_id(@edit[:alert_id]) : MiqAlert.new
-
     @edit[:new][:description] = params[:description].blank? ? nil : params[:description] if params[:description]
     @edit[:new][:enabled] = params[:enabled_cb] == "1" if params.key?(:enabled_cb)
     if params[:exp_event]
@@ -154,6 +155,10 @@ module MiqPolicyController::Alerts
         @edit[:new][:expression][:options][:ems_alarm_name] = @edit[:ems_alarms][params[:select_ems_alarm_mor]]
       end
     end
+    @edit[:new][:expression][:options][:value_mw_gt] = params[:value_mw_gt] if params[:value_mw_gt]
+    @edit[:new][:expression][:options][:value_mw_lt] = params[:value_mw_lt] if params[:value_mw_lt]
+    @edit[:new][:expression][:options][:value_mw_gc] = params[:value_mw_gc] if params[:value_mw_gc]
+    @edit[:new][:expression][:options][:mw_operator] = params[:select_mw_operator] if params[:select_mw_operator]
 
     @edit[:new][:email][:from] = params[:from] if params.key?(:from)
     @edit[:email] = params[:email] if params.key?(:email)
@@ -405,6 +410,10 @@ module MiqPolicyController::Alerts
         @edit[:operators] = eo[:values]
         @edit[:new][:expression][:options][:operator] ||= eo[:values].first
 
+      when :mw_operator
+        @edit[:operators] = eo[:values]
+        @edit[:new][:expression][:options][:mw_operator] ||= eo[:values].first
+
       when :event_log_message_filter_type
         @edit[:event_log_message_filter_types] = eo[:values]
         @edit[:new][:expression][:options][:event_log_message_filter_type] ||= eo[:values].first
@@ -553,6 +562,22 @@ module MiqPolicyController::Alerts
         end
       end
     end
+    if ["mw_heap_used", "mw_non_heap_used"].include?(@edit.fetch_path(:new, :expression, :eval_method))
+      vgt = @edit.fetch_path(:new, :expression, :options, :value_mw_gt)
+      unless vgt && is_integer?(vgt)
+        add_flash(_("> Heap Max (%) must be an integer"), :error)
+      end
+      unless vgt.to_i.between?(0, 100)
+        add_flash(_("> Heap Max (%) must be between 0 and 100"), :error)
+      end
+      vlt = @edit.fetch_path(:new, :expression, :options, :value_mw_lt)
+      unless vlt && is_integer?(vlt)
+        add_flash(_("< Heap Max (%) must be an integer"), :error)
+      end
+      unless vlt.to_i.between?(0, 100)
+        add_flash(_("< Heap Max (%) must be between 0 and 100"), :error)
+      end
+    end
     unless alert.options[:notifications][:email] ||
            alert.options[:notifications][:snmp] ||
            alert.options[:notifications][:evm_event] ||
@@ -612,5 +637,13 @@ module MiqPolicyController::Alerts
         end
       end
     end
+  end
+
+  def alert_sync_mw_provider(operation)
+    MiqQueue.put(
+      :class_name   => "ManageIQ::Providers::Hawkular::MiddlewareManager",
+      :method_name  => "update_alert",
+      :args         => {:operation => operation, :alert => @alert}
+    )
   end
 end

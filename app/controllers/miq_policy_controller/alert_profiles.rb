@@ -54,6 +54,7 @@ module MiqPolicyController::AlertProfiles
                                                 _("%{model} \"%{name}\" was added")
         add_flash(flash_key % {:model => ui_lookup(:model => "MiqAlertSet"), :name => @edit[:new][:description]})
         alert_profile_get_info(MiqAlertSet.find(alert_profile.id))
+        alert_profile_sync_mw_provider(current, mems.keys) if @alert_profile.mode == "MiddlewareServer"
         @edit = nil
         self.x_node = @new_alert_profile_node = "xx-#{alert_profile.mode}_ap-#{to_cid(alert_profile.id)}"
         get_node_info(@new_alert_profile_node)
@@ -113,7 +114,10 @@ module MiqPolicyController::AlertProfiles
                 :error)
     else
       alert_profiles.push(params[:id])
+      alert_profile_get_info(MiqAlertSet.find(params[:id]))
+      alert_profile_sync_mw_provider if @alert_profile.mode == "MiddlewareServer"
     end
+
     process_alert_profiles(alert_profiles, "destroy") unless alert_profiles.empty?
     nodes = x_node.split("_")
     nodes.pop
@@ -305,6 +309,7 @@ module MiqPolicyController::AlertProfiles
 
   # Save alert profile assignments
   def alert_profile_assign_save
+    alert_profile_sync_mw_provider if @alert_profile.mode == "MiddlewareServer"
     @alert_profile.remove_all_assigned_tos                # Remove existing assignments
     if @assign[:new][:assign_to]                          # If an assignment is selected
       if @assign[:new][:assign_to] == "enterprise"        # Assign to enterprise
@@ -342,5 +347,28 @@ module MiqPolicyController::AlertProfiles
     @alert_profile_alerts = @alert_profile.miq_alerts.sort_by { |a| a.description.downcase }
     @right_cell_text = _("%{model} \"%{name}\"") % {:model => ui_lookup(:model => "MiqAlertSet"), :name => alert_profile.description}
     @right_cell_div = "alert_profile_details"
+  end
+
+  def alert_profile_sync_mw_provider(old_alerts = nil, new_alerts = nil)
+    if old_alerts.nil? && new_alerts.nil?
+      operation = :update_children
+      old_alerts = new_alerts = @alert_profile.miq_alerts.collect { |x| x.id }
+      assigned = @alert_profile.get_assigned_tos
+    else
+      operation = :update_alerts
+    end
+    MiqQueue.put(
+      :class_name   => "ManageIQ::Providers::Hawkular::MiddlewareManager",
+      :method_name  => "update_alert_profiles",
+      :args         => {
+        :operation           => operation,
+        :profile_name        => @alert_profile.name,
+        :profile_description => @alert_profile.description,
+        :old_alerts          => old_alerts,
+        :new_alerts          => new_alerts,
+        :old_children        => assigned ? assigned[:objects] : nil,
+        :new_children        => @assign ? @assign[:new] : nil
+      }
+    )
   end
 end
