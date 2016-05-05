@@ -34,7 +34,7 @@ module ManageIQ::Providers
     # Inventory
 
     def self.raw_connect(hostname, port, username, password)
-      require 'hawkular_all'
+      require 'hawkular/hawkular_client'
       url = URI::HTTP.build(:host => hostname, :port => port.to_i, :path => '/hawkular/inventory').to_s
       ::Hawkular::Inventory::InventoryClient.new(url, :username => username, :password => password)
     end
@@ -69,7 +69,7 @@ module ManageIQ::Providers
     end
 
     def self.raw_metrics_connect(hostname, port, username, password)
-      require 'hawkular_all'
+      require 'hawkular/hawkular_client'
       url         = URI::HTTP.build(:host => hostname, :port => port.to_i, :path => '/hawkular/metrics').to_s
       options     = {}
       credentials = {
@@ -87,7 +87,7 @@ module ManageIQ::Providers
     end
 
     def self.raw_operations_connect(hostname, port, username, password)
-      require 'hawkular_all'
+      require 'hawkular/hawkular_client'
       host_port = URI::HTTP.build(:host => hostname, :port => port.to_i).to_s
       host_port.sub!('http://', '') # Api can't internally deal with the schema
       credentials = {:username => username, :password => password}
@@ -110,7 +110,7 @@ module ManageIQ::Providers
     end
 
     def self.raw_alerts_connect(hostname, port, username, password)
-      require 'hawkular_all'
+      require 'hawkular/hawkular_client'
       url         = URI::HTTP.build(:host => hostname, :port => port.to_i, :path => '/hawkular/alerts').to_s
       credentials = {
         :username => username,
