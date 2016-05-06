@@ -2,6 +2,8 @@
 # class ManageIQ::Providers::Hawkular::MiddlewareManager < ManageIQ::Providers::MiddlewareManager
 module ManageIQ::Providers
   class Hawkular::MiddlewareManager < ManageIQ::Providers::MiddlewareManager
+    require_nested :AlertManager
+    require_nested :AlertProfileManager
     require_nested :EventCatcher
     require_nested :LiveMetricsCapture
     require_nested :MiddlewareDeployment
@@ -150,54 +152,54 @@ module ManageIQ::Providers
     end
 
     def self.update_alert_profiles(*args)
-      operation = args[0][:operation]
-      profile_name = args[0][:profile_name]
-      profile_description = args[0][:profile_description]
-      old_alerts = args[0][:old_alerts]
-      new_alerts = args[0][:new_alerts]
-
-      case operation
-      when :update_alerts
-        _log.info("Change TriggerGroups for profile #{profile_description}. Old: #{old_alerts}. New: #{new_alerts}")
-      when :update_children
-        old_children = args[0][:old_children]
-        new_children = args[0][:new_children]
-        unless old_children.empty?
-          if old_children[0].class.name == "MiqEnterprise"
-            _log.info("Unassign from enterprise")
-            unassigned = []
-            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| unassigned << eap.id } }
+      miq_alert_profile = {
+        :id              => args[0][:profile_id],
+        :old_alerts_ids  => args[0][:old_alerts],
+        :new_alerts_ids  => args[0][:new_alerts]
+      }
+      if args[0][:operation] == :update_assignments
+        old_assignments = args[0][:old_assignments]
+        new_assignments = args[0][:new_assignments]
+        old_ids = []
+        new_ids = []
+        unless old_assignments.empty?
+          if old_assignments[0].class.name == "MiqEnterprise"
+            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| old_ids << eap.id } }
           else
-            unassigned = old_children.collect { |eap| eap.id }
+            old_ids = old_assignments.collect { |eap| eap.id }
           end
-          _log.info("Remove children ids #{unassigned} from TriggerGroups #{old_alerts} in profile #{profile_description}")
         end
-        unless new_children.nil? || new_children["assign_to"].nil?
-          if new_children["assign_to"] == "enterprise"
-            _log.info("Assign from enterprise")
-            assigned = []
-            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| assigned << eap.id } }
+        unless new_assignments.nil? || new_assignments["assign_to"].nil?
+          if new_assignments["assign_to"] == "enterprise"
+            # Note that in this version the assign to enterprise is resolved at the moment of the assignment
+            # In following iterations, enterprise assignment should be managed dynamically on the provider
+            MiddlewareManager.find_each { |m| m.middleware_servers.each { |eap| new_ids << eap.id } }
           else
-            assigned = new_children["objects"]
+            new_ids = new_assignments["objects"]
           end
-          _log.info("Add children ids #{assigned} from TriggerGroups #{old_alerts} in profile #{profile_description}")
         end
+        miq_alert_profile[:to_unassign_ids] = old_ids.select { |x| !new_ids.include?(x) }
+        miq_alert_profile[:to_assign_ids] = new_ids.select { |x| !old_ids.include?(x) }
       end
+      MiddlewareManager.find_each { |m| m.alert_profile_manager.process_alert_profile(args[0][:operation], miq_alert_profile) }
     end
 
     def self.update_alert(*args)
-      tg_id = args[0][:alert][:id]
-      tg_enabled = args[0][:alert][:enabled]
-      tg_description = args[0][:alert][:description]
-      tg_conditions = args[0][:alert][:expression]
-      case args[0][:operation]
-      when :new
-        _log.info("Create TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
-      when :update
-        _log.info("Update TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
-      when :delete
-        _log.info("Delete TriggerGroup [#{tg_id}, #{tg_enabled}, #{tg_description}, #{tg_conditions}]")
-      end
+      miq_alert = {
+        :id          => args[0][:alert][:id],
+        :enabled     => args[0][:alert][:enabled],
+        :description => args[0][:alert][:description],
+        :conditions  => args[0][:alert][:expression]
+      }
+      MiddlewareManager.find_each { |m| m.alert_manager.process_alert(args[0][:operation], miq_alert) }
+    end
+
+    def alert_manager
+      @alert_manager ||= ManageIQ::Providers::Hawkular::MiddlewareManager::AlertManager.new(self)
+    end
+
+    def alert_profile_manager
+      @alert_profile_manager ||= ManageIQ::Providers::Hawkular::MiddlewareManager::AlertProfileManager.new(self)
     end
 
     private

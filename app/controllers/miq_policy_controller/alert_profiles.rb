@@ -351,7 +351,7 @@ module MiqPolicyController::AlertProfiles
 
   def alert_profile_sync_mw_provider(old_alerts = nil, new_alerts = nil)
     if old_alerts.nil? && new_alerts.nil?
-      operation = :update_children
+      operation = :update_assignments
       old_alerts = new_alerts = @alert_profile.miq_alerts.collect { |x| x.id }
       assigned = @alert_profile.get_assigned_tos
     else
@@ -362,12 +362,11 @@ module MiqPolicyController::AlertProfiles
       :method_name  => "update_alert_profiles",
       :args         => {
         :operation           => operation,
-        :profile_name        => @alert_profile.name,
-        :profile_description => @alert_profile.description,
+        :profile_id          => @alert_profile.id,
         :old_alerts          => old_alerts,
         :new_alerts          => new_alerts,
-        :old_children        => assigned ? assigned[:objects] : nil,
-        :new_children        => @assign ? @assign[:new] : nil
+        :old_assignments     => assigned ? assigned[:objects] : nil,
+        :new_assignments     => @assign ? @assign[:new] : nil
       }
     )
   end

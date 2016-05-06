@@ -26,6 +26,8 @@ class MiddlewareServer < ApplicationRecord
     "Server Availability~App Server"                                    => "mw_availability_app_server"
   }.freeze
 
+  METRICS_MIQ_HWK = Hash[METRICS_HWK_MIQ.to_a.collect { |a| a.reverse }].freeze
+
   def metrics_capture
     @metrics_capture ||= ManageIQ::Providers::Hawkular::MiddlewareManager::LiveMetricsCapture.new(self)
   end
