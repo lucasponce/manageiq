@@ -8,8 +8,4 @@ class MiddlewareDatasource < ApplicationRecord
   serialize :properties
 
   delegate :mutable?, :in_domain?, :to => :middleware_server
-
-  def metrics_capture
-    @metrics_capture ||= ManageIQ::Providers::Hawkular::MiddlewareManager::LiveMetricsCapture.new(self)
-  end
 end
