@@ -17,6 +17,12 @@ def manageiq_plugin(plugin_name)
   end
 end
 
+def manageiq_hawkular_1328_plugin(plugin_name)
+  unless dependencies.detect { |d| d.name == plugin_name }
+    gem plugin_name, :git => "https://github.com/israel-hdez/#{plugin_name}", :branch => "hawkular-1328"
+  end
+end
+
 manageiq_plugin "manageiq-providers-ansible_tower" # can't move this down yet, because we can't autoload ManageIQ::Providers::AnsibleTower::Shared
 manageiq_plugin "manageiq-schema"
 
@@ -102,11 +108,11 @@ group :google, :manageiq_default do
 end
 
 group :hawkular, :manageiq_default do
-  manageiq_plugin "manageiq-providers-hawkular"
+  manageiq_hawkular_1328_plugin "manageiq-providers-hawkular"
 end
 
 group :kubernetes, :openshift, :manageiq_default do
-  manageiq_plugin "manageiq-providers-kubernetes"
+  manageiq_hawkular_1328_plugin "manageiq-providers-kubernetes"
 end
 
 group :lenovo, :manageiq_default do
@@ -185,7 +191,7 @@ group :consumption, :manageiq_default do
 end
 
 group :ui_dependencies do # Added to Bundler.require in config/application.rb
-  manageiq_plugin "manageiq-ui-classic"
+  manageiq_hawkular_1328_plugin "manageiq-ui-classic"
   # Modified gems (forked on Github)
   gem "jquery-rjs",                   "=0.1.1",                       :git => "https://github.com/ManageIQ/jquery-rjs.git", :tag => "v0.1.1-1"
 end
